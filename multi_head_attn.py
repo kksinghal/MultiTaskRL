@@ -18,17 +18,17 @@ class multi_head_attn(nn.Module):
     def forward(self, X, WQ_task, BQ_task, WK_task, BK_task, WV_task, BV_task):
         
         reshaped_X = X.reshape(1, *X.shape) #Add dimension at the beginning
-        
+        print(self.WQ_t_minus_1.shape, self.prev_Q.shape)
         Q = WQ_task * ( self.WQ_t_minus_1*self.prev_Q + self.WQ_x*reshaped_X + self.BQ) + BQ_task
 
         K = WK_task * ( self.WK_x*X + self.BK ) + BK_task
         
-        Q = Q.reshape(*Q.shape, 1, 1)
+        reshaped_Q = Q.reshape(*Q.shape, 1, 1)
         K = K.reshape(*K.shape[:1], 1, 1, *K.shape[1:])
 
         softmax = torch.nn.Softmax(dim = 2)
 
-        similarity = torch.sum(Q*K, dim=[0,1])
+        similarity = torch.sum(reshaped_Q*K, dim=[0,1])
 
         attention = softmax(similarity.reshape(*similarity.shape[:2], -1))
         attention = attention.reshape(*attention.shape[:2], 1, attention.shape[-1])
