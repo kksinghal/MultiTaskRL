@@ -1,7 +1,10 @@
 import torch
 from torch import nn
+import torchvision
 
 from multi_head_attn import multi_head_attn
+
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 class Agent(nn.Module):
     def __init__(self, n_heads): #n_heads for multi head attention
@@ -9,7 +12,7 @@ class Agent(nn.Module):
         
         self.n_heads = n_heads
         
-        resnet18 = torch.hub.load('pytorch/vision:v0.10.0', 'resnet18', pretrained=True)
+        resnet18 = torchvision.models.resnet18(pretrained=True)
         self.resnet_preprocessing_model = nn.Sequential(*list(resnet18.children())[:-3])
         
         self.memory = {}
@@ -32,16 +35,17 @@ class Agent(nn.Module):
             nn.Linear(32, 1)
         )
 
-
         
     
     def forward(self, X, task):
-        out = self.resnet_preprocessing_model(X.reshape(1, *X.shape)).reshape(256, 16, 16)
+        reshaped_X = X.reshape(1, *X.shape)
+        out = self.resnet_preprocessing_model(reshaped_X).squeeze()
+        
         out = self.attention_model(out, *self.memory[task].values())
         
-        out = out.reshape(-1)
-        
+        out = torch.flatten(out)
         action_dist = self.actor_fc(out)
+        
         action_dist[[1,3]] = torch.abs(action_dist[[1,3]])
         value = self.critic_fc(torch.cat((out, action_dist)))
         return action_dist, value
@@ -61,4 +65,7 @@ class Agent(nn.Module):
                 "WV": torch.rand((64,1,1)),
                 "BV": torch.rand((64,1,1))
             }
+            for key, value in self.memory[task].items():
+                self.memory[task][key] = self.memory[task][key].to(device)
         return self.memory[task].values()
+    

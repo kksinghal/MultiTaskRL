@@ -1,24 +1,27 @@
 import torch
 from torch import nn
 
+device = 'cuda' if torch.cuda.is_available() else 'cpu'
+
+
 class multi_head_attn(nn.Module):
     def __init__(self, n_heads, n_features, img_width, img_height, downsampled_channels):
         super().__init__()
-        self.WQ_t_minus_1 = torch.rand(n_heads, n_features, 1, 1)
-        self.WQ_x = torch.rand(1, n_features, 1, 1)
-        self.BQ = torch.rand(n_heads, n_features, 1, 1)
+        self.WQ_t_minus_1 = torch.rand(n_heads, n_features, 1, 1).to(device)
+        self.WQ_x = torch.rand(1, n_features, 1, 1).to(device)
+        self.BQ = torch.rand(n_heads, n_features, 1, 1).to(device)
         
-        self.WK_x = torch.rand(n_features, 1, 1)
-        self.BK = torch.rand(n_features, 1, 1)
+        self.WK_x = torch.rand(n_features, 1, 1).to(device)
+        self.BK = torch.rand(n_features, 1, 1).to(device)
         
-        self.prev_Q = torch.zeros(n_heads, n_features, img_width, img_height)
+        self.prev_Q = torch.zeros(n_heads, n_features, img_width, img_height).to(device)
         
-        self.Vconv = nn.Conv2d(in_channels=n_features, out_channels=downsampled_channels, kernel_size=3, padding=1)
+        self.Vconv = nn.Conv2d(in_channels=n_features, out_channels=downsampled_channels, kernel_size=3, padding=1).to(device)
         
+
     def forward(self, X, WQ_task, BQ_task, WK_task, BK_task, WV_task, BV_task):
         
         reshaped_X = X.reshape(1, *X.shape) #Add dimension at the beginning
-        print(self.WQ_t_minus_1.shape, self.prev_Q.shape)
         Q = WQ_task * ( self.WQ_t_minus_1*self.prev_Q + self.WQ_x*reshaped_X + self.BQ) + BQ_task
 
         K = WK_task * ( self.WK_x*X + self.BK ) + BK_task
@@ -39,7 +42,7 @@ class multi_head_attn(nn.Module):
 
         out = torch.sum(attention * V, dim = 3).permute([2,0,1])
         
-        self.prev_Q = Q
+        self.prev_Q = Q.detach()
         
         return out
         
