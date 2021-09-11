@@ -14,6 +14,8 @@ class Agent(nn.Module):
         
         resnet18 = torchvision.models.resnet18(pretrained=True)
         self.resnet_preprocessing_model = nn.Sequential(*list(resnet18.children())[:-3])
+        for param in self.resnet_preprocessing_model.parameters():
+            param.requires_grad = False
         
         self.memory = {}
         
