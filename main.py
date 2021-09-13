@@ -71,21 +71,31 @@ class train_loop:
 
         values = torch.Tensor(self.values)
         critic_loss = ((returns-values)**2).sum()
+        #loss_value_v = F.mse_loss(returns, self.values)        
+
         
+
+        adv_v = returns - values 
+
         e1 = - torch.sum(((action_dists[:,[0,2]] - actions)**2) / (2*action_dists[:,[1,3]].clamp(min=1e-3)))
         e2 = - torch.sum(torch.log(torch.sqrt(2 * math.pi * action_dists[:,[1,3]])))
-        actor_loss = e1 + e2
+        log_prob = e1 + e2
 
-        total_loss = (critic_loss + actor_loss).mean()
+        log_prob_v = adv_v * log_prob
+
+        loss_policy_v = -log_prob_v.mean()
+        ENTROPY_BETA = 1
+        entropy_loss_v = ENTROPY_BETA * (-(torch.log(2*math.pi*action_dists[:,[1,3]])+1)/2).mean()
+
+        total_loss = (critic_loss + entropy_loss_v + loss_policy_v).mean()
         print(total_loss)
         return total_loss
 
 
     def choose_action(self, observation, task):
         action_dist, value = self.agent(observation, task)
-        forward_force = torch.normal(action_dist[0], action_dist[1]) * 10
-        angular_velocity = torch.normal(action_dist[2], action_dist[3])
-        print(forward_force, angular_velocity)
+        forward_force = torch.normal(action_dist[0], action_dist[1]) * 1000
+        angular_velocity = torch.normal(action_dist[2], action_dist[3]) * 100
         
         return forward_force, angular_velocity, action_dist, value
 
@@ -115,15 +125,16 @@ class train_loop:
                 
                 action = [forward_force, angular_velocity]
                 env_action = ActionTuple(torch.tensor([action]).detach().numpy())
-                self.env.set_actions(behavior_name, env_action)
-                self.env.step()
+                
+                for i in range(3):
+                    self.env.set_actions(behavior_name, env_action)
+                    self.env.step()
     
                 self.remember(decision_steps.reward[0], action_dist, action, value)
                 #print("2.", torch.cuda.memory_reserved(0), torch.cuda.memory_allocated(0))
                 #print()
                 done = len(terminal_steps.reward)!=0 or t_step == T_MAX
 
-                print(f"Step: {t_step}")
                 if done:
                     if t_step == T_MAX:
                         score -= 1
@@ -145,8 +156,8 @@ class train_loop:
 
             print('episode ', episode_idx, 'reward %.1f' % score)
 
-lr=1e-4
+lr=1e-3
 agent = Agent(n_heads=16)
 env_path = "./Scenes/PushBlockScene/UnityEnvironment"
 training_loop = train_loop(agent, env_path, task="PushBlock", lr=lr)
-training_loop.run(N_GAMES=1000, T_MAX=300)
+training_loop.run(N_GAMES=5000, T_MAX=330)
