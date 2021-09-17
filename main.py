@@ -80,7 +80,7 @@ class train_loop:
 
         adv_v = returns - values 
 
-        e1 = - torch.sum(((action_dists[:,[0,2,4]] - actions)**2) / (2*action_dists[:,[1,3,5]].clamp(min=1e-3)))
+        e1 = - torch.sum(((action_dists[:,[0,2,4]] - actions)**2) / (2*action_dists[:,[1,3,5]]))
         e2 = - torch.sum(torch.log(torch.sqrt(2 * math.pi * action_dists[:,[1,3,5]])))
         log_prob = e1 + e2
 
@@ -91,7 +91,6 @@ class train_loop:
         entropy_loss_v = ENTROPY_BETA * (-(torch.log(2*math.pi*action_dists[:,[1,3,5]])+1)/2).mean()
 
         total_loss = (critic_loss + entropy_loss_v + loss_policy_v).mean()
-        print(total_loss)
         return total_loss
 
 
@@ -174,7 +173,7 @@ class train_loop:
             if (episode_idx+1) %10 == 0:
                 self.agent.save_parameters()
 
-lr=1e-3
+lr=1e-4
 agent = Agent(n_heads=16)
 env_path = "./Scenes/GoalieVS2Striker/UnityEnvironment"
 training_loop = train_loop(agent, env_path, task="goalieVSstrikers", lr=lr)
