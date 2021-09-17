@@ -21,42 +21,42 @@ class multi_head_attn(nn.Module):
         self.relu = nn.ReLU()
 
         parameters = torch.load("./parameters/multi_head_attn")
-        self.WQ_t_minus_1 = parameters["WQ_t_minus_1"].to(device).float()
-        self.WQ_x = parameters["WQ_x"].to(device).float()
-        self.BQ = parameters["BQ"].to(device).float()
-        self.WK_x = parameters["WK_x"].to(device).float()
-        self.BK = parameters["BK"].to(device).float()
-        self.Vconv = parameters["Vconv"].to(device).float()
+        self.WQ_t_minus_1 = parameters["WQ_t_minus_1"].to(device)
+        self.WQ_x = parameters["WQ_x"].to(device)
+        self.BQ = parameters["BQ"].to(device)
+        self.WK_x = parameters["WK_x"].to(device)
+        self.BK = parameters["BK"].to(device)
+        self.Vconv = parameters["Vconv"].to(device)
 
-        self.prev_Q = torch.zeros(n_heads, n_features, img_width, img_height).to(device).float()
+        self.prev_Q = torch.zeros(n_heads, n_features, img_width, img_height).to(device)
 
 
     def forward(self, X, WQ_task, BQ_task, WK_task, BK_task, WV_task, BV_task):
         
-        reshaped_X = X.reshape(1, *X.shape).float() #Add dimension at the beginning
+        reshaped_X = X.reshape(1, *X.shape) #Add dimension at the beginning
         Q = WQ_task * ( self.relu( self.WQ_t_minus_1*self.prev_Q + self.WQ_x*reshaped_X + self.BQ) ) + BQ_task
 
         K = WK_task * ( self.relu( self.WK_x*X + self.BK ) ) + BK_task
         
-        reshaped_Q = Q.reshape(*Q.shape, 1, 1).float()
+        reshaped_Q = Q.reshape(*Q.shape, 1, 1)
         K = K.reshape(*K.shape[:1], 1, 1, *K.shape[1:])
 
         softmax = torch.nn.Softmax(dim = 2)
 
-        similarity = torch.sum(reshaped_Q*K, dim=[0,1]).float()
+        similarity = torch.sum(reshaped_Q*K, dim=[0,1])
 
         attention = softmax(similarity.reshape(*similarity.shape[:2], -1)).float()
         attention = attention.reshape(*attention.shape[:2], 1, attention.shape[-1]).float()
 
         V = WV_task * self.Vconv(reshaped_X) + BV_task
 
-        V = V.reshape(1, *V.shape[:2], -1).float()
+        V = V.reshape(1, *V.shape[:2], -1)
 
-        out = torch.sum(attention * V, dim = 3).permute([2,0,1]).float()
+        out = torch.sum(attention * V, dim = 3).permute([2,0,1])
         
-        self.prev_Q = Q.detach().clone().float()
+        self.prev_Q = Q.detach().clone().to(device)
         
-        return out.float()
+        return out
         
     def save_parameters(self):
         parameters = {}

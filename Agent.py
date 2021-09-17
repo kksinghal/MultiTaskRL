@@ -37,7 +37,7 @@ class Agent(nn.Module):
          right_force_mean, right_force_std
          angular_velocity_mean, angular_velocity_std
         """
-        self.actor_fc = torch.load("./parameters/actor_fc")
+        self.actor_fc = torch.load("./parameters/actor_fc").to(device)
 
         """
         Initialisation:
@@ -49,26 +49,26 @@ class Agent(nn.Module):
             nn.Linear(32, 1)
         )
         """
-        self.critic_fc = torch.load("./parameters/critic_fc")
+        self.critic_fc = torch.load("./parameters/critic_fc").to(device)
 
         self.transform = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
 
     def forward(self, X, task):
-        X = self.transform(X).float()
+        X = self.transform(X)
     
-        reshaped_X = X.reshape(1, *X.shape).float()
+        reshaped_X = X.reshape(1, *X.shape)
         
-        out = self.resnet_preprocessing_model(reshaped_X).squeeze().float()
+        out = self.resnet_preprocessing_model(reshaped_X).squeeze()
         
-        out = self.attention_model(out, *self.memory[task].values()).float()
+        out = self.attention_model(out, *self.memory[task].values())
         
-        out = torch.flatten(out).float()
-        action_dist = self.actor_fc(out).float()
+        out = torch.flatten(out)
+        action_dist = self.actor_fc(out)
         
         
-        action_dist[[1,3,5]] = torch.abs(action_dist[[1,3,5]]).float()
-        value = self.critic_fc(torch.cat((out, action_dist))).float()
+        action_dist[[1,3,5]] = torch.abs(action_dist[[1,3,5]])
+        value = self.critic_fc(torch.cat((out, action_dist)))
         return action_dist, value
     
         
@@ -88,14 +88,18 @@ class Agent(nn.Module):
             }
 
             torch.save(self.memory, "./parameters/task_memory")
-            for key, value in self.memory[task].items():
-                self.memory[task][key] = self.memory[task][key].to(device).float()
 
+        for key, value in self.memory[task].items():
+            self.memory[task][key] = self.memory[task][key].to(device)
+        
         return self.memory[task].values()
+
+
+        
     
     def save_parameters(self):
         torch.save(self.resnet_preprocessing_model, "./parameters/resnet_preprocessing_model")
         torch.save(self.memory, "./parameters/task_memory")
         self.attention_model.save_parameters()
-        torch.save(actor_fc, "./parameters/actor_fc")
-        torch.save(critic_fc, "./parameters/critic_fc")
+        torch.save(self.actor_fc, "./parameters/actor_fc")
+        torch.save(self.critic_fc, "./parameters/critic_fc")

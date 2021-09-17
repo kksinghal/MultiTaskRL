@@ -10,6 +10,9 @@ from Agent import Agent
 from mlagents_envs.environment import UnityEnvironment
 from mlagents_envs.base_env import ActionTuple
 
+from torch.utils.tensorboard import SummaryWriter
+writer = SummaryWriter('tensorboard/loss')
+
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 
@@ -102,7 +105,7 @@ class train_loop:
 
 
     def run(self, N_GAMES, T_MAX):
-                
+
         for episode_idx in range(N_GAMES):
             done = False
             self.env.reset()
@@ -115,7 +118,6 @@ class train_loop:
             while not done:
 
                 decision_steps, terminal_steps = self.env.get_steps(behavior_name)
-                score += decision_steps.reward[0]
 
                 observation = torch.Tensor(decision_steps.obs[0]).squeeze().permute(2,0,1)
                 observation = observation.to(device)
@@ -128,21 +130,33 @@ class train_loop:
                 action = [forward_force, right_force, angular_velocity]
                 env_action = ActionTuple(torch.tensor([action]).detach().numpy())
                 
+                tmp_score = 0
                 for i in range(3):
                     if not done:
                         self.env.set_actions(behavior_name, env_action)
                         self.env.step()
-                        done = len(terminal_steps.reward)!=0 or t_step == T_MAX
+                        decision_steps, terminal_steps = self.env.get_steps(behavior_name)
+                        done = len(decision_steps.reward)==0 or t_step == T_MAX
+                        if not done:
+                            tmp_score += decision_steps.reward[0]
+                        else:
+                            tmp_score += terminal_steps.reward[0]
     
-                self.remember(decision_steps.reward[0], action_dist, action, value)
-      
+                self.remember(tmp_score, action_dist, action, value)
+
+                score += tmp_score 
 
                 if done:
                     if t_step == T_MAX:
                         score -= 1
                     else:
                         score += terminal_steps.reward[0]
+
                     loss = self.calc_loss(done)
+
+                    writer.add_scalar('training loss',
+                            loss / 1000,
+                            episode_idx)
                     
                     self.brain_optimizer.zero_grad()
                     self.task_memory_optimizer.zero_grad()
