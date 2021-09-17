@@ -162,6 +162,6 @@ class train_loop:
 
 lr=1e-3
 agent = Agent(n_heads=16)
-env_path = "./Scenes/StrikerVSGoalie/UnityEnvironment"
+env_path = "./Scenes/GoalieVS2Striker/UnityEnvironment"
 training_loop = train_loop(agent, env_path, task="goalieVSstrikers", lr=lr)
 training_loop.run(N_GAMES=5000, T_MAX=330)
