@@ -77,15 +77,15 @@ class train_loop:
 
         adv_v = returns - values 
 
-        e1 = - torch.sum(((action_dists[:,[0,2]] - actions)**2) / (2*action_dists[:,[1,3]].clamp(min=1e-3)))
-        e2 = - torch.sum(torch.log(torch.sqrt(2 * math.pi * action_dists[:,[1,3]])))
+        e1 = - torch.sum(((action_dists[:,[0,2,4]] - actions)**2) / (2*action_dists[:,[1,3,5]].clamp(min=1e-3)))
+        e2 = - torch.sum(torch.log(torch.sqrt(2 * math.pi * action_dists[:,[1,3,5]])))
         log_prob = e1 + e2
 
         log_prob_v = adv_v * log_prob
 
         loss_policy_v = -log_prob_v.mean()
         ENTROPY_BETA = 1
-        entropy_loss_v = ENTROPY_BETA * (-(torch.log(2*math.pi*action_dists[:,[1,3]])+1)/2).mean()
+        entropy_loss_v = ENTROPY_BETA * (-(torch.log(2*math.pi*action_dists[:,[1,3,5]])+1)/2).mean()
 
         total_loss = (critic_loss + entropy_loss_v + loss_policy_v).mean()
         print(total_loss)
@@ -95,9 +95,10 @@ class train_loop:
     def choose_action(self, observation, task):
         action_dist, value = self.agent(observation, task)
         forward_force = torch.normal(action_dist[0], action_dist[1]) * 1000
-        angular_velocity = torch.normal(action_dist[2], action_dist[3]) * 100
+        right_force = torch.normal(action_dist[2], action_dist[3]) * 1000
+        angular_velocity = torch.normal(action_dist[4], action_dist[5]) * 100
         
-        return forward_force, angular_velocity, action_dist, value
+        return forward_force, right_force, angular_velocity, action_dist, value
 
 
     def run(self, N_GAMES, T_MAX):
@@ -115,25 +116,26 @@ class train_loop:
 
                 decision_steps, terminal_steps = self.env.get_steps(behavior_name)
                 score += decision_steps.reward[0]
+
                 observation = torch.Tensor(decision_steps.obs[0]).squeeze().permute(2,0,1)
                 observation = observation.to(device)
                 out = self.choose_action(observation, self.task)
                 
-                forward_force, angular_velocity, action_dist, value = [i.cpu() for i in out]
+                forward_force, right_force, angular_velocity, action_dist, value = [i.cpu() for i in out]
 
                 del observation, out
                 
-                action = [forward_force, angular_velocity]
+                action = [forward_force, right_force, angular_velocity]
                 env_action = ActionTuple(torch.tensor([action]).detach().numpy())
                 
                 for i in range(3):
-                    self.env.set_actions(behavior_name, env_action)
-                    self.env.step()
+                    done = len(terminal_steps.reward)!=0 or t_step == T_MAX
+                    if not done:
+                        self.env.set_actions(behavior_name, env_action)
+                        self.env.step()
     
                 self.remember(decision_steps.reward[0], action_dist, action, value)
-                #print("2.", torch.cuda.memory_reserved(0), torch.cuda.memory_allocated(0))
-                #print()
-                done = len(terminal_steps.reward)!=0 or t_step == T_MAX
+      
 
                 if done:
                     if t_step == T_MAX:
@@ -155,9 +157,11 @@ class train_loop:
                 t_step += 1
 
             print('episode ', episode_idx, 'reward %.1f' % score)
+            if (episode_idx+1) %10 == 0:
+                self.agent.save_parameters()
 
 lr=1e-3
 agent = Agent(n_heads=16)
-env_path = "./Scenes/PushBlockScene/UnityEnvironment"
-training_loop = train_loop(agent, env_path, task="PushBlock", lr=lr)
+env_path = "./Scenes/StrikerVSGoalie/UnityEnvironment"
+training_loop = train_loop(agent, env_path, task="goalieVSstrikers", lr=lr)
 training_loop.run(N_GAMES=5000, T_MAX=330)
