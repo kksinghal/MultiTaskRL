@@ -129,10 +129,10 @@ class train_loop:
                 env_action = ActionTuple(torch.tensor([action]).detach().numpy())
                 
                 for i in range(3):
-                    done = len(terminal_steps.reward)!=0 or t_step == T_MAX
                     if not done:
                         self.env.set_actions(behavior_name, env_action)
                         self.env.step()
+                        done = len(terminal_steps.reward)!=0 or t_step == T_MAX
     
                 self.remember(decision_steps.reward[0], action_dist, action, value)
       
