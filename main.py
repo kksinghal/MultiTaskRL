@@ -149,7 +149,8 @@ class train_loop:
                     if t_step == T_MAX:
                         score -= 1
                     else:
-                        score += terminal_steps.reward[0]
+                        if len(terminal_steps.reward)!=0:
+                            score += terminal_steps.reward[0]
 
                     loss = self.calc_loss(done)
 
@@ -175,6 +176,6 @@ class train_loop:
 
 lr=1e-4
 agent = Agent(n_heads=16)
-env_path = "./Scenes/GoalieVS2Striker/UnityEnvironment"
+env_path = None#"./Scenes/GoalieVS2Striker/UnityEnvironment"
 training_loop = train_loop(agent, env_path, task="goalieVSstrikers", lr=lr)
 training_loop.run(N_GAMES=5000, T_MAX=330)

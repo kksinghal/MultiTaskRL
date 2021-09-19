@@ -20,7 +20,7 @@ class multi_head_attn(nn.Module):
 
         self.relu = nn.ReLU()
 
-        parameters = torch.load("./parameters/multi_head_attn")
+        parameters = torch.load("./parameters/multi_head_attn", map_location=device)
         self.WQ_t_minus_1 = parameters["WQ_t_minus_1"].to(device)
         self.WQ_x = parameters["WQ_x"].to(device)
         self.BQ = parameters["BQ"].to(device)

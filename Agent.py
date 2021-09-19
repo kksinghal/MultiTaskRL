@@ -15,12 +15,12 @@ class Agent(nn.Module):
         
         #torchvision.models.resnet18(pretrained=True)
         #nn.Sequential(*list(resnet18.children())[:-3])
-        self.resnet_preprocessing_model = torch.load("./parameters/resnet_preprocessing_model").to(device)
+        self.resnet_preprocessing_model = torch.load("./parameters/resnet_preprocessing_model", map_location=device)
 
         for param in self.resnet_preprocessing_model.parameters():
             param.requires_grad = False
         
-        self.memory = torch.load("./parameters/task_memory")
+        self.memory = torch.load("./parameters/task_memory", map_location=device)
         
         self.attention_model = multi_head_attn(self.n_heads, 256, 16, 16, 64)
         
@@ -37,7 +37,7 @@ class Agent(nn.Module):
          right_force_mean, right_force_std
          angular_velocity_mean, angular_velocity_std
         """
-        self.actor_fc = torch.load("./parameters/actor_fc").to(device)
+        self.actor_fc = torch.load("./parameters/actor_fc", map_location=device)
 
         """
         Initialisation:
@@ -49,10 +49,10 @@ class Agent(nn.Module):
             nn.Linear(32, 1)
         )
         """
-        self.critic_fc = torch.load("./parameters/critic_fc").to(device)
+        self.critic_fc = torch.load("./parameters/critic_fc", map_location=device)
 
         self.transform = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
-        self.conv = nn.Conv2d(256, 64, kernel_size=3, padding=1)
+        self.conv = nn.Conv2d(256, 64, kernel_size=3, padding=1).to(device)
 
 
     def forward(self, X, task):
