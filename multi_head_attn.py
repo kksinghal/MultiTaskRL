@@ -67,4 +67,3 @@ class multi_head_attn(nn.Module):
         parameters["BK"] = self.BK
         parameters["Vconv"] = self.Vconv
         torch.save(parameters, "./parameters/multi_head_attn")
-        

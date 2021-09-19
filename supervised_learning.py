@@ -31,39 +31,46 @@ class EpisodeSelector(Dataset):
         output = pd.read_csv("./data/"+task+"/"+str(episode_idx)+"/output.csv")
         return task, episode_idx, output
     
-batch_size = 8
-dataloader = DataLoader(EpisodeSelector, shuffle=True, batch_size=batch_size)
 
-lr = 1e-3
+episode_selector = EpisodeSelector()
+lr = 1e-2
 
-brain_optimizer = torch.optim.Adam(agent.get_brain_parameters(), lr=lr*1e-3, 
+brain_optimizer = torch.optim.Adam(agent.get_brain_parameters(), lr=lr,#*1e-2, 
                     betas=(0.92, 0.999))
 loss_fn = nn.MSELoss()
 
-def train_loop():
-    size = len(dataloader)
-    for batch, (task, episode_idx, label_df) in enumerate(dataloader):
+def train_loop(epoch):
+    size = len(episode_selector)
+    for batch, (task, episode_idx, label_df) in enumerate(episode_selector):
 
-        #agent.attention_model.prev_Q = torch.zeros(16, 256, 16, 16).to(device) 
+        agent.attention_model.prev_Q = torch.zeros(16, 256, 16, 16).to(device) 
 
         task_memory_optimizer = torch.optim.Adam(agent.get_task_memory_parameters(task), lr=lr, 
                             betas=(0.92, 0.999))
 
         loss = 0
+        loss_action = 0
+        loss_value = 0
         for index, row in label_df.iterrows():
-            observation = torchvision.io.read_image("./data/"+task+"/"+str(episode_idx)+"/"+str(int(row["id"]))+".png").float()
+            observation = torchvision.io.read_image("./data/"+task+"/"+str(episode_idx)+"/"+str(int(row["id"]))+".png").float().to(device)
 
             pred_action_dist, pred_value = agent(observation, task)
-
-            action_dist = torch.tensor([row["forward_force_mean"], 5, row["angular_velocity_mean"], 5])
-            value = torch.tensor([row["value"]])
+            print(pred_action_dist)
+            action_dist = torch.tensor([row["forward_force_mean"], 5, row["right_force_mean"], 5, row["angular_velocity_mean"], 5]).to(device)
+            value = torch.tensor([row["value"]]).to(device)
 
             loss += loss_fn(pred_action_dist.float(), action_dist.float())
             loss += loss_fn(pred_value.float(), value.float())
 
-        writer.add_scalar('training loss',
-            batch / 1000,
-            episode_idx)
+            loss_action += loss_fn(pred_action_dist.float(), action_dist.float())
+            loss_value += loss_fn(pred_value.float(), value.float())
+
+        writer.add_scalar('action loss',
+            loss_action / 6000,
+            batch + size*epoch)
+        writer.add_scalar('value loss',
+            loss_value / 1000,
+            batch + size*epoch)
 
         brain_optimizer.zero_grad()
         task_memory_optimizer.zero_grad()
@@ -75,11 +82,11 @@ def train_loop():
 
         #if batch % 100 == 0:
         loss, current = loss.item(), batch
-        print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+        print(f"loss: {loss:>7f}  [Epoch: {epoch}; {current:>5d}/{size:>5d}]")
 
-
-train_loop()
-
-
+epochs = 310
+for epoch in range(300, epochs):
+    train_loop(epoch)
+    agent.save_parameters()
 
 

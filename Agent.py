@@ -42,7 +42,7 @@ class Agent(nn.Module):
         """
         Initialisation:
         self.critic_fc = nn.Sequential(
-            nn.Linear(64*16*16 + 4, 128), #4 for the actions
+            nn.Linear(64*16*16 + 6, 128), #4 for the actions
             nn.ReLU(),
             nn.Linear(128, 32),#Output value for the action in given state
             nn.ReLU(),
@@ -52,23 +52,23 @@ class Agent(nn.Module):
         self.critic_fc = torch.load("./parameters/critic_fc").to(device)
 
         self.transform = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
+        self.conv = nn.Conv2d(256, 64, kernel_size=3, padding=1)
 
 
     def forward(self, X, task):
         X = self.transform(X)
-    
         reshaped_X = X.reshape(1, *X.shape)
-        
+
         out = self.resnet_preprocessing_model(reshaped_X).squeeze()
         
-        out = self.attention_model(out, *self.memory[task].values())
-        
+        out = self.conv(out.reshape(1, *out.shape))#self.attention_model(out, *self.memory[task].values())
+
         out = torch.flatten(out)
         action_dist = self.actor_fc(out)
         
-        
         action_dist[[1,3,5]] = torch.abs(action_dist[[1,3,5]])
         value = self.critic_fc(torch.cat((out, action_dist)))
+
         return action_dist, value
     
         
