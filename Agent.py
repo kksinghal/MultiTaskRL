@@ -3,102 +3,90 @@ from torch import nn
 import torchvision
 from torchvision import transforms
 
-from multi_head_attn import multi_head_attn
+from critic import critic
+from actor import actor
+
+from utils import *
 
 device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
-class Agent(nn.Module):
-    def __init__(self, n_heads): #n_heads for multi head attention
-        super().__init__()
-        
-        self.n_heads = n_heads
-        
-        #torchvision.models.resnet18(pretrained=True)
-        #nn.Sequential(*list(resnet18.children())[:-3])
-        self.resnet_preprocessing_model = torch.load("./parameters/resnet_preprocessing_model").to(device)
+actor_learning_rate=1e-4 
+critic_learning_rate=1e-3
+gamma=0.99
+tau=1e-2
+max_buffer_size=50000
 
-        for param in self.resnet_preprocessing_model.parameters():
-            param.requires_grad = False
-        
-        self.memory = torch.load("./parameters/task_memory")
-        
-        self.attention_model = multi_head_attn(self.n_heads, 256, 16, 16, 64)
-        
+class Agent():
+    def __init__(self, retention_time): 
 
-        """
-        Initialisation:
-        self.actor_fc = nn.Sequential(
-            nn.Linear(64*16*16, 128),
-            nn.ReLU(),
-            nn.Linear(128, 32),
-            nn.ReLU(),
-            nn.Linear(32, 6) 
-        )Output is forward_force_mean, forward_force_std, 
-         right_force_mean, right_force_std
-         angular_velocity_mean, angular_velocity_std
-        """
-        self.actor_fc = torch.load("./parameters/actor_fc").to(device)
+        self.retention_time = retention_time
+        
+        self.critic = critic(retention_time)
+        self.critic_target = critic(retention_time)
 
-        """
-        Initialisation:
-        self.critic_fc = nn.Sequential(
-            nn.Linear(64*16*16 + 6, 128), #4 for the actions
-            nn.ReLU(),
-            nn.Linear(128, 32),#Output value for the action in given state
-            nn.ReLU(),
-            nn.Linear(32, 1)
-        )
-        """
-        self.critic_fc = torch.load("./parameters/critic_fc").to(device)
+        self.actor = actor(retention_time)
+        self.actor_target = actor(retention_time)
+        
+        for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
+            target_param.data.copy_(param.data)
 
+        for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
+            target_param.data.copy_(param.data)
+        
         self.transform = transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
+        # Training
+        self.replay_buffer = ReplayBuffer(max_buffer_size)        
+        self.critic_criterion  = nn.MSELoss()
+        self.actor_optimizer  = torch.optim.Adam(self.actor.parameters(), lr=actor_learning_rate)
+        self.critic_optimizer = torch.optim.Adam(self.critic.parameters(), lr=critic_learning_rate)
 
-    def forward(self, X, task):
-        X = self.transform(X)
-        reshaped_X = X.reshape(1, *X.shape)
+        self.memory = None
 
-        out = self.resnet_preprocessing_model(reshaped_X).squeeze()
+    
+    def add_to_memory(self, state):
+        self.memory = torch.cat((self.memory[1:], state))
+
+
+    def get_action(self):
+        state = self.transform(self.memory)
+        action = self.actor(self.memory)
+        action = action.detach().numpy()
+        return action
+    
+
+    def update(self, batch_size):
+        states, actions, rewards, next_states, _ = self.memory.sample(batch_size)
+        states = torch.FloatTensor(states)
+        actions = torch.FloatTensor(actions)
+        rewards = torch.FloatTensor(rewards)
+        next_states = torch.FloatTensor(next_states)
+    
+        # Critic loss        
+        Qvals = self.critic(states, actions)
+        next_actions = self.actor_target(next_states)
+        next_Q = self.critic_target.forward(next_states, next_actions.detach())
+        Qprime = rewards + self.gamma * next_Q
+        critic_loss = self.critic_criterion(Qvals, Qprime)
+
+        # Actor loss
+        policy_loss = -self.critic(states, self.actor(states)).mean()
         
-        out = self.attention_model(out, *self.memory[task].values())
+        # update networks
+        self.actor_optimizer.zero_grad()
+        policy_loss.backward()
+        self.actor_optimizer.step()
 
-        out = torch.flatten(out)
-        action_dist = self.actor_fc(out)
-        
-        action_dist[[1,3,5]] = torch.abs(action_dist[[1,3,5]])
-        value = self.critic_fc(torch.cat((out, action_dist)))
+        self.critic_optimizer.zero_grad()
+        critic_loss.backward() 
+        self.critic_optimizer.step()
 
-        return action_dist, value
+        # update target networks 
+        for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
+            target_param.data.copy_(param.data * self.tau + target_param.data * (1.0 - self.tau))
+       
+        for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
+            target_param.data.copy_(param.data * self.tau + target_param.data * (1.0 - self.tau))
+
     
         
-    def get_brain_parameters(self):
-        return list(self.attention_model.parameters()) + list(self.actor_fc.parameters()) + list(self.critic_fc.parameters())
-            
-
-    def get_task_memory_parameters(self, task):
-        if task not in self.memory.keys():
-            self.memory[task] = {
-                "WQ": torch.rand((self.n_heads,256,1,1)),
-                "BQ": torch.rand((self.n_heads,256,1,1)),
-                "WK": torch.rand((256,1,1)),
-                "BK": torch.rand((256,1,1)),
-                "WV": torch.rand((64,1,1)),
-                "BV": torch.rand((64,1,1))
-            }
-
-            torch.save(self.memory, "./parameters/task_memory")
-
-        for key, value in self.memory[task].items():
-            self.memory[task][key] = self.memory[task][key].to(device)
-        
-        return self.memory[task].values()
-
-
-        
-    
-    def save_parameters(self):
-        torch.save(self.resnet_preprocessing_model, "./parameters/resnet_preprocessing_model")
-        torch.save(self.memory, "./parameters/task_memory")
-        self.attention_model.save_parameters()
-        torch.save(self.actor_fc, "./parameters/actor_fc")
-        torch.save(self.critic_fc, "./parameters/critic_fc")
