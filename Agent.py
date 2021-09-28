@@ -59,7 +59,7 @@ class Agent():
 
         action = self.actor(x)
 
-        action = action.detach().numpy()
+        action = action.detach().cpu().numpy()
         return action
     
 

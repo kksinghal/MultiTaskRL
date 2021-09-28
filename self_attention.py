@@ -22,11 +22,11 @@ class self_attention(nn.Module):
 
         self.softmax = torch.nn.Softmax(dim=2)
 
-        self.task_query = torch.rand((int(in_channels/2), retention_time, img_width, img_height))
-        self.task_key = torch.rand((int(in_channels/2), retention_time, img_width, img_height))
-        self.task_value = torch.rand((int(in_channels/2), retention_time, img_width, img_height))
+        self.task_query = torch.nn.Parameter(torch.rand((int(in_channels/2), retention_time, img_width, img_height)))
+        self.task_key = torch.nn.Parameter(torch.rand((int(in_channels/2), retention_time, img_width, img_height)))
+        self.task_value = torch.nn.Parameter(torch.rand((int(in_channels/2), retention_time, img_width, img_height)))
 
-        self.positional_encoding = torch.rand((in_channels, retention_time, img_height, img_width))
+        self.positional_encoding = torch.nn.Parameter(torch.rand((in_channels, retention_time, img_height, img_width)))
         
 
     def forward(self, X):

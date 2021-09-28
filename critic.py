@@ -7,10 +7,10 @@ class critic(nn.Module):
     def __init__(self, retention_time):
         super().__init__()
         
-        self.resnet = ResNet(in_channels=3, img_size=256, retention_time=retention_time)
+        self.resnet = ResNet(in_channels=3, img_size=128, retention_time=retention_time)
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
-            nn.Linear(2048*retention_time*4*4 + 3, 1024),
+            nn.Linear(2048*retention_time*2*2 + 3, 1024),
             nn.ReLU(),
             nn.Linear(1024, 512),
             nn.ReLU(),

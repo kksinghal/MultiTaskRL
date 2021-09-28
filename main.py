@@ -14,9 +14,9 @@ from mlagents_envs.base_env import ActionTuple
 env_path = None#"./Scenes/GoalieVS2Striker/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
-retention_time = 5
+retention_time = 3
 agent = Agent(retention_time)
-batch_size = 8
+batch_size = 4
 rewards = []
 avg_rewards = []
 
@@ -44,7 +44,7 @@ for episode in range(50):
         else:
             action = torch.normal(mean=action, std=action*0.2) 
 
-        env_action = ActionTuple(action.detach().numpy())
+        env_action = ActionTuple(action.detach().cpu().numpy())
 
 
         reward = 0
@@ -79,7 +79,7 @@ for episode in range(50):
 
     if episode%5 == 0:
         torch.save(agent.actor.state_dict(), "./parameters/actor")
-        torch.save(agent.actcriticor.state_dict(), "./parameters/critic")
+        torch.save(agent.critic.state_dict(), "./parameters/critic")
 
     rewards.append(episode_reward)
     avg_rewards.append(np.mean(rewards[-10:]))
