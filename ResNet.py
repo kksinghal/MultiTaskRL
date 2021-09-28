@@ -10,13 +10,12 @@ class bottle_neck(nn.Module):
         super().__init__()
         
         self.retention_time = retention_time
-        self.out_channels = in_channels * 2 # = in_channels * expansion
         self.img_size = img_size
 
-        self.attn_1 = self_attention(in_channels*2, int(img_size/2), int(img_size/2), retention_time)
-        self.batch_norm1 = nn.BatchNorm3d(in_channels*2)
-        self.attn_2 = self_attention(in_channels*2, int(img_size/2), int(img_size/2), retention_time)
-        self.batch_norm2 = nn.BatchNorm3d(self.out_channels)
+        self.attn_1 = self_attention(in_channels, img_size, img_size, retention_time)
+        self.batch_norm1 = nn.BatchNorm3d(in_channels)
+        self.attn_2 = self_attention(in_channels, img_size, img_size, retention_time)
+        self.batch_norm2 = nn.BatchNorm3d(in_channels)
         self.relu = nn.ReLU()
 
         self.sequential = nn.Sequential(
@@ -66,9 +65,9 @@ class ResNet(nn.Module):
         )
 
         self.maxPool = nn.MaxPool2d(kernel_size=2, stride=2, ceil_mode=False)
+        self.flatten = nn.Flatten()
 
-
-        self.blocks = nn.ModuleList([])
+        self.blocks = nn.ModuleList([]) 
         for i in range(5):
             self.blocks.append(self.make_layer(64*(2**i), int(img_size/(2**(i+1))), retention_time, n_blocks= 2))
 
@@ -79,13 +78,10 @@ class ResNet(nn.Module):
         shape = X.shape
         X = X.reshape(shape[0], -1, shape[-2], shape[-1])
         X = self.maxPool(X).reshape(*shape[:3], int(shape[3]/2), int(shape[4]/2))
-        
+
         for block in self.blocks:
             X = block(X)
 
-        X = self.flatten(X)
-        #X = self.dropout(X)
-        X = self.fc(X)
         return X
         
 
@@ -93,7 +89,7 @@ class ResNet(nn.Module):
         layers= []
         layers.append(downsample(in_channels, retention_time, img_size))
         for i in range(n_blocks):
-            layers.append(bottle_neck(in_channels, img_size, retention_time))
+            layers.append(bottle_neck(in_channels*2, int(img_size/2), retention_time))
         
         
         return nn.Sequential(*layers)

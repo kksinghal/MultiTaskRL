@@ -14,12 +14,13 @@ from mlagents_envs.base_env import ActionTuple
 env_path = None#"./Scenes/GoalieVS2Striker/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
-retention_time = 2
+retention_time = 5
 agent = Agent(retention_time)
-batch_size = 16
+batch_size = 8
 rewards = []
 avg_rewards = []
 
+T_MAX = 300
 for episode in range(50):
     env.reset()
     env.step()
@@ -28,14 +29,18 @@ for episode in range(50):
     decision_steps, terminal_steps = env.get_steps(behavior_name)
 
     state = torch.Tensor(decision_steps.obs[0]).squeeze().permute(2,0,1)
-    agent.memory = state.reshape(1, *state.shape).repeat(retention_time, *state.shape)
-    print(agent.memory.shape)
+    agent.memory = state.reshape(1, state.shape[0], 1, *state.shape[1:]).repeat(1, 1, retention_time, 1, 1)
+    for t in range(retention_time):
+        agent.replay_buffer.push(state, None, None, None, None)
+ 
     episode_reward = 0
     
-    for step in range(300):
+    done = False
+    for t_step in range(T_MAX):
+        print(t_step)
         action = agent.get_action()
         if episode < 50:
-            action = torch.rand((3,)) * 50
+            action = torch.rand((1,3))
         else:
             action = torch.normal(mean=action, std=action*0.2) 
 
@@ -56,10 +61,14 @@ for episode in range(50):
 
         new_state = torch.Tensor(decision_steps.obs[0]).squeeze().permute(2,0,1)
 
-        agent.memory.push(state, action, reward, new_state, done)
+        agent.replay_buffer.push(state, action, reward, new_state, done)
         
-        if len(agent.memory) > batch_size:
+        agent.add_to_memory(state)
+        
+        if len(agent.replay_buffer) > batch_size + retention_time:
+            print("yes0")
             agent.update(batch_size)        
+            print("yes1")
         
         state = new_state
         episode_reward += reward
@@ -67,6 +76,10 @@ for episode in range(50):
         if done:
             sys.stdout.write("episode: {}, reward: {}, average _reward: {} \n".format(episode, np.round(episode_reward, decimals=2), np.mean(rewards[-10:])))
             break
+
+    if episode%5 == 0:
+        torch.save(agent.actor.state_dict(), "./parameters/actor")
+        torch.save(agent.actcriticor.state_dict(), "./parameters/critic")
 
     rewards.append(episode_reward)
     avg_rewards.append(np.mean(rewards[-10:]))
