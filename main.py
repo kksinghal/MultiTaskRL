@@ -59,10 +59,10 @@ def get_input():
         
     except:
         print("except")
-    return np.array([forward_force_mean, right_force_mean, angular_velocity_mean])*2
+    return np.array([[forward_force_mean, right_force_mean, angular_velocity_mean]])*2
 
-total_episodes = 200
-for episode in range(102,total_episodes, 3):
+total_episodes = 10
+for episode in range(0,total_episodes, 3):
 
     for i in range(3): #Collect 3 episodes
         print("Episode: ", episode+i)
