@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device = 'cpu'#cuda' if torch.cuda.is_available() else 'cpu'
 
 
 class self_attention(nn.Module):

@@ -64,21 +64,21 @@ for episode_idx in range(already_collected_episodes, already_collected_episodes+
         angular_velocity_mean = 0
         try:
             if keyboard.is_pressed('w'):
-                forward_force_mean = 400
+                forward_force_mean = 1
             if keyboard.is_pressed('f'):
-                forward_force_mean = 700
+                forward_force_mean = -1
             if keyboard.is_pressed('s'):
-                forward_force_mean = -400
+                forward_force_mean = -1
             
             if keyboard.is_pressed('d'):
-                right_force_mean = 400
+                right_force_mean = 1
             if keyboard.is_pressed('a'):
-                right_force_mean = -400
+                right_force_mean = -1
 
             if keyboard.is_pressed('m'):
-                angular_velocity_mean = 200
+                angular_velocity_mean = 1
             if keyboard.is_pressed('n'):
-                angular_velocity_mean = -200    
+                angular_velocity_mean = -1    
             
         except:
             print("except")
