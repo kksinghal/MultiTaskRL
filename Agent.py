@@ -10,10 +10,13 @@ from utils import *
 
 from pathlib import Path
 
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
+device1 = torch.device("cuda:0") # critic
+device2 = torch.device("cuda:1") # actor
 
-actor_learning_rate=1e-3
-critic_learning_rate=1e-3
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+actor_learning_rate=1e-4
+critic_learning_rate=1e-4
 gamma=0.99
 tau=1e-2
 max_buffer_size = 10000
@@ -23,17 +26,17 @@ class Agent():
 
         self.retention_time = retention_time
         
-        self.critic = critic(retention_time).to(device)
+        self.critic = critic(retention_time).to(device1)
         critic_file = Path("./parameters/critic")
         if critic_file.is_file():
             self.critic.load_state_dict(torch.load("./parameters/critic"))
-        self.critic_target = critic(retention_time).to(device)
+        self.critic_target = critic(retention_time).to(device1)
 
-        self.actor = actor(retention_time).to(device)
+        self.actor = actor(retention_time).to(device2)
         actor_file = Path("./parameters/actor")
         if actor_file.is_file():
             self.actor.load_state_dict(torch.load("./parameters/actor"))
-        self.actor_target = actor(retention_time).to(device)
+        self.actor_target = actor(retention_time).to(device2)
         
         for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
             target_param.data.copy_(param.data)

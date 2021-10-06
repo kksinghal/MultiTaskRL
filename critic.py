@@ -10,25 +10,17 @@ class critic(nn.Module):
         self.resnet = ResNet(in_channels=3, img_size=128, retention_time=retention_time)
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
-            nn.Linear(2048*retention_time*2*2 + 3, 1024, bias=False),
-            nn.BatchNorm1d(1024),
-            nn.ReLU(),
-            nn.Linear(1024, 512, bias=False),
-            nn.BatchNorm1d(512),
-            nn.ReLU(),
-            nn.Linear(512, 128, bias=False),
-            nn.BatchNorm1d(128),
-            nn.ReLU(),
-            nn.Linear(128, 64, bias=False),
-            nn.BatchNorm1d(64),
-            nn.ReLU(),
+            nn.Linear(2048*retention_time*2*2 + 3, 1024),
+            nn.Sigmoid(),
+            nn.Linear(1024, 64),
+            nn.Sigmoid(),
             nn.Linear(64, 1)
         )
     
     def forward(self, X, actions):
         y = self.resnet(X)
-        y = self.flatten(y)
 
+        y = self.flatten(y)
         y = torch.cat((y, actions), dim=1)
         out = self.fc(y)
 

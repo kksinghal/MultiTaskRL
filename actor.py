@@ -11,13 +11,9 @@ class actor(nn.Module):
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
             nn.Linear(2048*3*2*2, 1024),
-            nn.ReLU(inplace=False),
-            nn.Linear(1024, 512),
-            nn.ReLU(inplace=False),
-            nn.Linear(512, 128),
-            nn.ReLU(inplace=False),
-            nn.Linear(128, 64),
-            nn.ReLU(inplace=False),
+            nn.Sigmoid(),
+            nn.Linear(1024, 64),
+            nn.Sigmoid(),
             nn.Linear(64, 3),
             nn.Tanh()
         )

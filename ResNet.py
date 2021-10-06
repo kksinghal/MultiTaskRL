@@ -1,6 +1,8 @@
+from numpy import NaN
 import torch
 from torch import nn
 import torchvision
+import sys
 
 from self_attention import self_attention
 
@@ -14,21 +16,15 @@ class bottle_neck(nn.Module):
 
         self.attn_1 = self_attention(in_channels, img_size, img_size, retention_time)
         self.batch_norm1 = nn.BatchNorm3d(in_channels)
-        self.attn_2 = self_attention(in_channels, img_size, img_size, retention_time)
-        self.batch_norm2 = nn.BatchNorm3d(in_channels)
-        self.relu = nn.ReLU()
 
         self.sequential = nn.Sequential(
             self.attn_1,
             self.batch_norm1,
-            self.relu,
-            self.attn_2,
-            self.batch_norm2,
         )
             
         
     def forward(self, X):
-        y = self.relu(self.sequential(X) + X)
+        y = self.sequential(X)
 
         return y
         
@@ -55,7 +51,7 @@ class downsample(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, in_channels, img_size, retention_time):
+    def __init__(self, img_size, retention_time):
         super(ResNet, self).__init__()
         
         self.stem = nn.Sequential(
@@ -72,9 +68,9 @@ class ResNet(nn.Module):
             self.blocks.append(self.make_layer(64*(2**i), int(img_size/(2**(i+1))), retention_time, n_blocks= 2))
 
 
-
     def forward(self, X):
         X = self.stem(X)
+
         shape = X.shape
         X = X.reshape(shape[0], -1, shape[-2], shape[-1])
         X = self.maxPool(X).reshape(*shape[:3], int(shape[3]/2), int(shape[4]/2))

@@ -1,8 +1,6 @@
 import torch
 from torch import nn
 
-device = 'cpu'#cuda' if torch.cuda.is_available() else 'cpu'
-
 
 class self_attention(nn.Module):
 
@@ -27,15 +25,14 @@ class self_attention(nn.Module):
         self.task_value = torch.nn.Parameter(torch.rand((int(in_channels/2), retention_time, img_width, img_height)))
 
         self.positional_encoding = torch.nn.Parameter(torch.rand((in_channels, retention_time, img_height, img_width)))
-        
+
 
     def forward(self, X):
-
         query = (self.query_conv(X+self.positional_encoding) + self.task_query).reshape(-1, int(self.in_channels/2), self.img_width*self.img_height*self.retention_time).permute(0,2,1)
         key = (self.key_conv(X+self.positional_encoding) + self.task_key).reshape(-1, int(self.in_channels/2), self.img_width*self.img_height*self.retention_time)
 
         similarity = torch.matmul(query, key)
-        softmax = self.softmax(similarity)
+        similarity = self.softmax(similarity)
 
         value = (self.value_conv(X +self.positional_encoding) + self.task_value).reshape(-1, int(self.in_channels/2), self.img_width*self.img_height*self.retention_time).permute(0,2,1)
         

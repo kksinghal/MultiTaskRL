@@ -48,14 +48,15 @@ class ReplayBuffer:
         experience = (state, action, reward, next_state, done)
         self.buffer.append(experience)
 
-    def sample(self, batch_size, retention_time):
+    def sample(self, batch_size, retention_time, batch_ids=None):
         state_batch = []
         action_batch = []
         reward_batch = []
         next_state_batch = []
         done_batch = []
 
-        batch_ids = np.random.choice(self.sampling_ids, batch_size)
+        if batch_ids is None:
+            batch_ids = np.random.choice(self.sampling_ids, batch_size)
 
         for id in batch_ids:
   

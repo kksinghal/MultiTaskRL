@@ -14,7 +14,7 @@ from mlagents_envs.base_env import ActionTuple
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
-env_path = "./Scenes/PushBlock_Win/UnityEnvironment"
+env_path = "./Scenes/PushBlock_Win_slow/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
 def set_seeds(seed):
@@ -61,8 +61,8 @@ def get_input():
         print("except")
     return np.array([[forward_force_mean, right_force_mean, angular_velocity_mean]])*2
 
-total_episodes = 10
-for episode in range(0,total_episodes, 3):
+total_episodes = 100
+for episode in range(36,total_episodes, 3):
 
     for i in range(3): #Collect 3 episodes
         print("Episode: ", episode+i)
@@ -85,13 +85,12 @@ for episode in range(0,total_episodes, 3):
             if done:
                 break
             
-            """
             if random.uniform(0, 1) < epsilon:
-                action = np.random.rand(1,3) * 2 - 2
+                action = np.random.rand(1,3) * 4 - 2
             else:    
                 action = agent.get_action()
-            """
-            action = get_input()
+            
+            #action = get_input()
             env_action = ActionTuple(action)
 
             reward = 0
