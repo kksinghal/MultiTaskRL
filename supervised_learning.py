@@ -11,9 +11,6 @@ from torch.utils.data import DataLoader
 from torch.utils.data import Dataset
 from torchvision import transforms
 
-from mlagents_envs.environment import UnityEnvironment
-from mlagents_envs.base_env import ActionTuple
-
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
@@ -23,11 +20,11 @@ def set_seeds(seed):
     np.random.seed(seed=seed)  # Set seed for NumPy RNG
     random.seed(seed)  # Set seed for random RNG
 
-set_seeds(2)
+set_seeds(1)
 
 retention_time = 3
 agent = Agent(retention_time)
-batch_size = 1
+batch_size = 32 #Actual batch_size = 32*4
 rewards = []
 avg_rewards = []
 epsilon = 0.1
@@ -93,12 +90,27 @@ train_size = int(0.8 * len(dataset))
 test_size = len(dataset) - train_size
 train_dataset, test_dataset = torch.utils.data.random_split(dataset, [train_size, test_size])
 
-train_dataloader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
-test_dataloader = DataLoader(test_dataset, batch_size=batch_size, shuffle=True)
+train_dataloader = DataLoader(train_dataset, batch_size=4, shuffle=True)
+test_dataloader = DataLoader(test_dataset, batch_size=4, shuffle=True)
 
 
 device1 = torch.device("cuda:0") # critic
 device2 = torch.device("cuda:1") # actor
+
+
+def take_step():
+    agent.critic_optimizer.step()
+    agent.actor_optimizer.step()
+
+    agent.critic_optimizer.zero_grad()
+    agent.actor_optimizer.zero_grad()
+
+    # update target networks 
+    for target_param, param in zip(agent.actor_target.parameters(), agent.actor.parameters()):
+        target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
+    
+    for target_param, param in zip(agent.critic_target.parameters(), agent.critic.parameters()):
+        target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
 
 
 def train_loop(epoch):
@@ -124,47 +136,89 @@ def train_loop(epoch):
         Qprime = (rewards + gamma * next_Q * done_batch).to(device1)
 
         agent.critic.train()
-        agent.critic_optimizer.zero_grad()
         critic_loss = agent.critic_criterion(Qvals.float(), Qprime.float())
-        critic_loss.backward(retain_graph=True, inputs=list(agent.critic.parameters())) 
-        agent.critic_optimizer.step()
-
+        critic_loss.backward(retain_graph=True) 
 
         agent.critic.eval()
-        agent.actor_optimizer.zero_grad()
+        
         # Actor loss
-        policy_loss = -agent.critic(states_device1, agent.actor(states_device2).to(device1)).mean()
-        policy_loss.backward(inputs=list(agent.actor.parameters()))
-        agent.actor_optimizer.step()
+        actions_ = agent.actor(states_device2).to(device1)
+        agent.actor.train()
+        policy_loss = -agent.critic(states_device1, actions_).mean()
+        policy_loss.backward()
 
-
+        if (batch+1)%batch_size == 0:
+            take_step()
+    
         total_actor_loss += policy_loss.detach()
         total_critic_loss += critic_loss.detach()
 
+    take_step()
+    print(f"Epoch {epoch}; actor loss: {total_actor_loss:>7f}, critic loss: {total_critic_loss:>7f}")
 
-        # update target networks 
-        for target_param, param in zip(agent.actor_target.parameters(), agent.actor.parameters()):
-            target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
-       
-        for target_param, param in zip(agent.critic_target.parameters(), agent.critic.parameters()):
-            target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
-
-
-        if batch % 20 == 0:
-            current = batch * len(done_batch)
-            print(f"Epoch {epoch}; actor loss: {policy_loss:>7f}, critic loss: {critic_loss:>7f}  [{current:>5d}/{size:>5d}]")
-            
-    writer.add_scalar('critic loss',
-        total_critic_loss,
-        epoch)
-    writer.add_scalar('actor loss',
-        total_actor_loss,
-        epoch)
     torch.save(agent.actor.state_dict(), "./parameters/actor")
     torch.save(agent.critic.state_dict(), "./parameters/critic")
+    return total_actor_loss, total_critic_loss
 
 
+def eval_loop():
+    size = len(test_dataloader.dataset)
+    total_critic_loss, total_actor_loss = 0, 0
+    for batch, (states, actions, rewards, next_states, done_batch) in enumerate(test_dataloader):
+        states_device1 = states.to(device1)
+        states_device2 = states.to(device2)
 
-epochs = 100
-for epoch in range(epochs):
-    train_loop(epoch)
+        actions_device1 = actions.to(device1)
+        
+        next_states_device1 = next_states.to(device1)
+        next_states_device2 = next_states.to(device2)
+
+        # Critic loss
+        Qvals = agent.critic(states_device1, actions_device1).squeeze()
+        next_actions = agent.actor_target(next_states_device2).to(device1)
+        next_Q = agent.critic_target(next_states_device1, next_actions.detach()).squeeze().cpu()
+        Qprime = (rewards + gamma * next_Q * done_batch).to(device1)
+
+        critic_loss = agent.critic_criterion(Qvals.float(), Qprime.float()).detach().cpu()
+
+        # Actor loss
+        policy_loss = -agent.critic(states_device1, agent.actor(states_device2).to(device1)).mean().detach().cpu()
+
+        total_actor_loss += policy_loss
+        total_critic_loss += critic_loss
+
+    return total_actor_loss, total_critic_loss
+
+epochs = 400
+for epoch in range(15, epochs):
+    train_actor_loss, train_critic_loss = train_loop(epoch)
+
+    with torch.no_grad():
+        agent.critic.eval()
+        agent.actor.eval()
+        agent.critic_target.eval() 
+        agent.actor_target.eval()
+        test_actor_loss, test_critic_loss = eval_loop()
+        agent.critic.train()
+        agent.actor.train()
+        agent.critic_target.train() 
+        agent.actor_target.train()
+
+    writer.add_scalars('Critic Loss', {
+        "Train": train_critic_loss/train_size,
+        "Eval": test_critic_loss/test_size
+        }, epoch)
+
+    writer.add_scalars('Actor Loss', {
+        "Train": train_actor_loss/train_size,
+        "Eval": test_actor_loss/test_size
+        }, epoch)
+
+    if (epoch+1)%20 == 0:
+        for target_param, param in zip(agent.actor_target.parameters(), agent.actor.parameters()):
+            target_param.data.copy_(param.data)
+
+        for target_param, param in zip(agent.critic_target.parameters(), agent.critic.parameters()):
+            target_param.data.copy_(param.data)
+
+

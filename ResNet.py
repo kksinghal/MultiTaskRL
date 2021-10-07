@@ -51,7 +51,7 @@ class downsample(nn.Module):
 
 
 class ResNet(nn.Module):
-    def __init__(self, img_size, retention_time):
+    def __init__(self, in_channels, img_size, retention_time):
         super(ResNet, self).__init__()
         
         self.stem = nn.Sequential(

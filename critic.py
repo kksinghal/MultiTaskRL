@@ -11,9 +11,11 @@ class critic(nn.Module):
         self.flatten = nn.Flatten()
         self.fc = nn.Sequential(
             nn.Linear(2048*retention_time*2*2 + 3, 1024),
-            nn.Sigmoid(),
-            nn.Linear(1024, 64),
-            nn.Sigmoid(),
+            nn.ReLU(),
+            nn.Linear(1024, 256),
+            nn.ReLU(),
+            nn.Linear(256, 64),
+            nn.ReLU(),
             nn.Linear(64, 1)
         )
     

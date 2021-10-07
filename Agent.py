@@ -15,7 +15,7 @@ device2 = torch.device("cuda:1") # actor
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-actor_learning_rate=1e-4
+actor_learning_rate=1e-6
 critic_learning_rate=1e-4
 gamma=0.99
 tau=1e-2
@@ -75,46 +75,3 @@ class Agent():
 
         return action.detach().numpy() 
     
-
-    def update(self, batch_size):
-
-        states, actions, rewards, next_states, done_batch = self.replay_buffer.sample(batch_size, self.retention_time)
-        states = torch.stack([x.float() for x in states]).to(device)
-        actions = torch.stack([x.float() for x in actions]).to(device)
-        rewards = torch.tensor(rewards).squeeze()
-        done_batch = torch.tensor(done_batch)
-        next_states = torch.stack([x.float() for x in next_states]).to(device)
-
-        # Critic loss        
-        Qvals = self.critic(states, actions).squeeze()
-        next_actions = self.actor_target(next_states)
-        next_Q = self.critic_target(next_states, next_actions.detach()).squeeze().cpu()
-
-        Qprime = (rewards + gamma * next_Q * done_batch).to(device)
-
-        critic_loss = self.critic_criterion(Qvals.float(), Qprime.float())
-
-        # Actor loss
-        policy_loss = -self.critic(states, self.actor(states)).mean()
-        
-        # update networks
-        self.actor_optimizer.zero_grad()
-        policy_loss.backward(retain_graph=True, inputs=list(self.actor.parameters()))
-        self.actor_optimizer.step()
-
-        self.critic_optimizer.zero_grad()
-        critic_loss.backward(inputs=list(self.critic.parameters())) 
-        self.critic_optimizer.step()
-
-
-
-        # update target networks 
-        for target_param, param in zip(self.actor_target.parameters(), self.actor.parameters()):
-            target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
-       
-        for target_param, param in zip(self.critic_target.parameters(), self.critic.parameters()):
-            target_param.data.copy_(param.data * tau + target_param.data * (1.0 - tau))
-
-    
-        return policy_loss.detach().cpu(), critic_loss.detach().cpu()
-        
