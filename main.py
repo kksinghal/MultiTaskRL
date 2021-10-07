@@ -41,6 +41,8 @@ tau=1e-2
 
 T_MAX = 300
 
+device1 = torch.device("cuda:0") # critic
+device2 = torch.device("cuda:0") # actor
 
 def get_input():
     forward_force_mean = 0 
@@ -109,9 +111,6 @@ class my_dataset(Dataset):
         current_state_memory, action, next_state_memory = self.random_flip(current_state_memory, action, next_state_memory)
         return current_state_memory, action, reward, next_state_memory, done
 
-
-device1 = torch.device("cuda:0") # critic
-device2 = torch.device("cuda:0") # actor
 
 
 def take_step():
@@ -188,7 +187,7 @@ for episode in range(0,total_episodes, 3):
 
         env.reset()
         env.step()
-
+        print("Hello")
         behavior_name = list(env.behavior_specs)[0] 
         decision_steps, terminal_steps = env.get_steps(behavior_name)
 
@@ -201,7 +200,9 @@ for episode in range(0,total_episodes, 3):
         
         done = False
         for t_step in range(T_MAX):
+            print(t_step)
             if done:
+                print("Breaked")
                 break
 
             epsilon = max(0.1, 0.1*(10-episode))
@@ -235,6 +236,7 @@ for episode in range(0,total_episodes, 3):
             
             state = new_state
             episode_reward += reward
+
 
     dataset = my_dataset()
     train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
