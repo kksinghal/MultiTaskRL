@@ -18,7 +18,7 @@ from mlagents_envs.base_env import ActionTuple
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
-env_path = "./Scenes/PushBlock_Win_Small/UnityEnvironment"
+env_path = "./Scenes/PushBlock_Win_small/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
 def set_seeds(seed):
