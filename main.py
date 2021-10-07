@@ -18,7 +18,7 @@ from mlagents_envs.base_env import ActionTuple
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
-env_path = "./Scenes/PushBlock_Win_Small/UnityEnvironment"
+env_path = "./Scenes/PushBlock_Win_small/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
 def set_seeds(seed):
@@ -133,13 +133,13 @@ def train_loop():
     size = len(train_dataloader.dataset)
     total_critic_loss, total_actor_loss = 0, 0
     for batch, (states, actions, rewards, next_states, done_batch) in enumerate(train_dataloader):
-        states_device1 = states.to(device1)
-        states_device2 = states.to(device2)
+        states_device1 = states.to(device1).float()
+        states_device2 = states.to(device2).float()
 
-        actions_device1 = actions.to(device1)
+        actions_device1 = actions.to(device1).float()
         
-        next_states_device1 = next_states.to(device1)
-        next_states_device2 = next_states.to(device2)
+        next_states_device1 = next_states.to(device1).float()
+        next_states_device2 = next_states.to(device2).float()
         
 
         agent.actor_target.eval()
@@ -201,7 +201,7 @@ for episode in range(0,total_episodes, 3):
             if done:
                 break
 
-            epsilon = max(0.1, 0.05*(10-episode))
+            epsilon = max(0.1, 0.1*(10-episode))
             
             if random.uniform(0, 1) < epsilon:
                 action = np.random.rand(1,3) * 4 - 2
