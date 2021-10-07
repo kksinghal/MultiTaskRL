@@ -18,7 +18,7 @@ from mlagents_envs.base_env import ActionTuple
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
-env_path = "./Scenes/PushBlock_Win_small/UnityEnvironment"
+env_path = "./Scenes/PushBlock_Win_Small/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
 def set_seeds(seed):
@@ -202,15 +202,15 @@ for episode in range(0,total_episodes, 3):
         for t_step in range(T_MAX):
             print(t_step)
             if done:
-                print("Breaked")
+                print("Broke")
                 break
 
             epsilon = max(0.1, 0.1*(10-episode))
             
-            if random.uniform(0, 1) < epsilon:
-                action = np.random.rand(1,3) * 4 - 2
-            else:    
-                action = agent.get_action()
+            #if random.uniform(0, 1) < epsilon:
+            action = np.random.rand(1,3) * 4 - 2
+            #else:    
+            #    action = agent.get_action()
             
             #action = get_input()
             env_action = ActionTuple(action)
