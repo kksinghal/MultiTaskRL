@@ -18,7 +18,7 @@ from mlagents_envs.base_env import ActionTuple
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter('tensorboard/')
 
-env_path = "./Scenes/PushBlock_Win_slow/UnityEnvironment"
+env_path = "./Scenes/PushBlock_Win_Small/UnityEnvironment"
 env = UnityEnvironment(file_name=env_path,  seed=1, side_channels=[])
 
 def set_seeds(seed):
@@ -35,8 +35,7 @@ batch_size = 5
 rewards = []
 avg_rewards = []
 epsilon = 0.1
-actor_learning_rate=1e-6
-critic_learning_rate=1e-4
+
 gamma=0.99
 tau=1e-2
 
@@ -89,7 +88,7 @@ class my_dataset(Dataset):
         return current_state_memory, action, next_state_memory
 
     def __getitem__(self, idx):
-
+        idx = agent.replay_buffer.sampling_ids[idx]
         state, action, reward, next_state, done = self.buffer[idx]
         reward, done = torch.tensor(reward), torch.tensor(done)
         action = action[0]
@@ -111,11 +110,8 @@ class my_dataset(Dataset):
         return current_state_memory, action, reward, next_state_memory, done
 
 
-dataset = my_dataset()
-train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
-
 device1 = torch.device("cuda:0") # critic
-device2 = torch.device("cuda:1") # actor
+device2 = torch.device("cuda:0") # actor
 
 
 def take_step():
@@ -181,8 +177,8 @@ def train_loop():
     return total_actor_loss, total_critic_loss
 
 
-total_episodes = 100
-for episode in range(36,total_episodes, 3):
+total_episodes = 300
+for episode in range(0,total_episodes, 3):
 
     for i in range(3): #Collect 3 episodes
         print("Episode: ", episode+i)
@@ -204,6 +200,8 @@ for episode in range(36,total_episodes, 3):
         for t_step in range(T_MAX):
             if done:
                 break
+
+            epsilon = max(0.1, 0.05*(10-episode))
             
             if random.uniform(0, 1) < epsilon:
                 action = np.random.rand(1,3) * 4 - 2
@@ -235,6 +233,8 @@ for episode in range(36,total_episodes, 3):
             state = new_state
             episode_reward += reward
 
+    dataset = my_dataset()
+    train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
     actor_loss, critic_loss = train_loop()
     print("actor loss: "+str(actor_loss) + ", critic loss: "+str(critic_loss))    

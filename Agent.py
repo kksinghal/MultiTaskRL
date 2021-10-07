@@ -11,15 +11,11 @@ from utils import *
 from pathlib import Path
 
 device1 = torch.device("cuda:0") # critic
-device2 = torch.device("cuda:1") # actor
+device2 = torch.device("cuda:0") # actor
 
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-actor_learning_rate=1e-6
-critic_learning_rate=1e-4
-gamma=0.99
-tau=1e-2
 max_buffer_size = 10000
+actor_learning_rate=1e-5
+critic_learning_rate=1e-4
 
 class Agent():
     def __init__(self, retention_time): 
@@ -66,7 +62,7 @@ class Agent():
         shape = self.memory.shape
         memory = self.memory.reshape(shape[0]*shape[2], 3, shape[-2], shape[-1])
 
-        x = self.transform(memory).reshape(*shape).float().to(device)
+        x = self.transform(memory).reshape(*shape).float().to(device2)
 
         action = self.actor(x).cpu()
         #noise = torch.tensor(self.noise(), dtype=action.dtype)
