@@ -165,6 +165,9 @@ def train_loop():
 
         if (batch+1)%batch_size == 0:
             take_step()
+
+        current = batch * len(done_batch)
+        print(f"[{current:>5d}/{size:>5d}]", end="\r")
     
         total_actor_loss += policy_loss.detach()
         total_critic_loss += critic_loss.detach()
@@ -237,8 +240,7 @@ for episode in range(0,total_episodes, 3):
     train_dataloader = DataLoader(dataset, batch_size=4, shuffle=True)
 
     actor_loss, critic_loss = train_loop()
-    print("actor loss: "+str(actor_loss) + ", critic loss: "+str(critic_loss))    
-
+    actor_loss, critic_loss = actor_loss/len(dataset), critic_loss/len(dataset)
 
     torch.save(agent.actor.state_dict(), "./parameters/actor")
     torch.save(agent.critic.state_dict(), "./parameters/critic")
@@ -262,7 +264,7 @@ for episode in range(0,total_episodes, 3):
         actor_loss,
         episode)
 
-    print('reward:', rewards[-1], "; avg reward:",avg_rewards[-1], '; critic loss:', critic_loss/t_step, "; actor loss:", actor_loss/t_step)
+    print('reward:', rewards[-1], "; avg reward:",avg_rewards[-1], '; critic loss:', critic_loss, "; actor loss:", actor_loss)
 
 
 
